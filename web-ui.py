@@ -28,7 +28,10 @@ logging.basicConfig(
 
 # Tokens, etc
 # Hugging Face token: https://huggingface.co/docs/hub/security-tokens#user-access-tokens
-HUGGINGFACE_AUTH_TOKEN = "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"
+HUGGINGFACE_AUTH_TOKEN = os.getenv("HUGGINGFACE_AUTH_TOKEN")
+if HUGGINGFACE_AUTH_TOKEN is None:
+    logging.error("HUGGINGFACE_AUTH_TOKEN is not set")
+    exit(1)
 logging.info(f"Hugging Face token: {HUGGINGFACE_AUTH_TOKEN}")
 
 TEMP_VIDEO_FILE = "temp/input.mp4"
