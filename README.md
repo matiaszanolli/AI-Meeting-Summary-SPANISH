@@ -1,56 +1,75 @@
-# AI Meeting Transcription
-Repo showcasing AI meeting transcription tool.
+# AI Meeting Transcription and Summarization
 
-## Summary
-This repo showcase a basic tool for meeting transcription. It's targetted at meetings conducted in English, but with little tweaking could be used for other languages as well.
+A tool for transcribing and summarizing meetings from video files or YouTube URLs. This application uses state-of-the-art AI models to perform speaker diarization (identifying who is speaking) and speech-to-text transcription, followed by automatic summarization of key points.
 
-### Workflow
-The tool works in a three step process:
-1. It extract audio path from given video file or YouTube link
-2. It generates speaker diarization (separating different speaker tracks) by using [`pyannote/speaker-diarization-3.0`](https://huggingface.co/pyannote/speaker-diarization-3.0) model
-3. Finally it generates transcription using [Open AI Whisper model](https://huggingface.co/openai/whisper-base.en). By default it uses Whisper `base.en` version but you can select other model sizes. The output is saved to `output.sub` file in [SubViewer format](https://wiki.videolan.org/SubViewer/).
-   
+## Features
 
-### Local processing
-All processing is done locally on the users machine. The model weights are downloaded to local `~/.cache` folder (on macOS).
-- Speaker Diarization 3.0 model weights around 6 MB
-- Whisper Base.en model weights around 300 MB
+- Process video files or YouTube URLs
+- Extract audio automatically
+- Identify different speakers (diarization)
+- Transcribe speech to text with Whisper models
+- Generate meeting summaries with key points
+- Support for Spanish and English languages
+- Export transcriptions in SubViewer format (.sub)
 
-## Setup
+## Requirements
 
-### Install Dependencies
+- Python 3.8+
+- CUDA-compatible GPU (recommended for faster processing)
+- Hugging Face account with API token
 
-Install following dependencies (on macOS):
+## Installation
 
-- `ffmpeg` CLI - [`brew install ffmpeg`](https://formulae.brew.sh/formula/ffmpeg)
-- Python 3 installation - e.g. [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/) or [Homebrew package](https://formulae.brew.sh/formula/python@3.10).
-- Python packages - `pip3 install -r requirements.txt`
+1. Clone this repository:
+   git clone https://github.com/yourusername/ai-meeting-transcription.git
+   cd ai-meeting-transcription
 
-### Hugging Face token
-In order to download models used by these tool you need to:
+2. Create a virtual environment and install dependencies:
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
 
-1. Generate a private Hugging Face auth token - [instructions here](https://huggingface.co/docs/hub/security-tokens)
-2. Create `.env` file inside root repo folder with following content:
-```env
-HUGGINGFACE_AUTH_TOKEN="your token here..."
-```
-3. Accept `Speaker diarization 3.0` model terms of service - [link here](https://huggingface.co/pyannote/speaker-diarization-3.0)
-4. Accept `"Powerset" speaker segmentation` model terms of service - [link here](https://huggingface.co/pyannote/segmentation-3.0)
+3. Create a .env file in the project root with your Hugging Face token:
+   HUGGINGFACE_AUTH_TOKEN=your_token_here
 
-## Running
+## Usage
 
-### Web UI
+1. Start the web interface:
+   python web-ui.py
 
-In order to run Web UI just run `python3 ./web-ui.py` in the repo folder. This should open following Web UI interface in the browser.
+2. Open your browser at http://localhost:7860
 
-### Jupyter Notebook
+3. Upload a video file or enter a YouTube URL
 
-The tool can be used as Jupyter Labs/Notebook as well, you open the  `Transcription.ipynb` in [Jupyter Labs](https://jupyterlab.readthedocs.io/en/stable/getting_started/installation.html#conda).
+4. Configure the parameters:
+   - Select language (Spanish, English, or auto-detect)
+   - Choose Whisper model size (larger models are more accurate but slower)
+   - Adjust collar value for speaker diarization
+   - Enable/disable summary generation
 
-### Notes
+5. Click "Iniciar" to start processing
 
-Speaker diarization steps is the longest part of moder execution. It roughly takes 30s for each 1 minute of the meeting to execute on M1 MacBook Pro. 
+6. View the transcription and summary in the respective tabs
 
-## Troubleshooting
+## Models Used
 
-1. If you get following error `"Could not download 'pyannote/segmentation-3.0' model. It might be because the model is private or gated so make sure to authenticate."` then make sure you provided [Hugging Face auth](#hugging-face-token) token AND accepted `Speaker diarization 3.0` model [terms of service](https://huggingface.co/pyannote/speaker-diarization-3.0).
+- Speaker Diarization: pyannote/speaker-diarization-3.0
+- Speech Recognition: OpenAI Whisper (various sizes)
+- Summarization: Custom extractive summarization algorithm
+
+## Output Files
+
+- output.sub: Transcription in SubViewer format
+- output_summary.txt: Meeting summary with key points
+- output-tracks/: Directory containing audio segments for each speaker turn
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- OpenAI Whisper (https://github.com/openai/whisper)
+- Pyannote Audio (https://github.com/pyannote/pyannote-audio)
+- Gradio (https://www.gradio.app/)
+- PyTube (https://github.com/pytube/pytube)
