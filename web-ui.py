@@ -109,23 +109,33 @@ def extract_audio_track(input_file, start_time, end_time, track_file):
     track.export(track_file, format="wav")  # Changed from mp3 to wav
 
 
-def generate_speaker_diarization(audio_file):
-    """Generate speaker diarization for given audio file"""
+def generate_speaker_diarization(audio_file, num_speakers=None):
+    """Generate speaker diarization for given audio file
+    
+    Parameters:
+    audio_file (str): Path to the audio file
+    num_speakers (int, optional): Number of speakers in the audio. If provided, improves diarization accuracy and speed.
+    """
 
-    logging.info(f"Generating speaker diarization... audio file: {audio_file}")
+    logging.info(f"Generating speaker diarization... audio file: {audio_file}, num_speakers: {num_speakers}")
 
     pipeline = Pipeline.from_pretrained(
         "pyannote/speaker-diarization-3.0",
         use_auth_token=HUGGINGFACE_AUTH_TOKEN)
+    
+    # Apply speaker count parameter if provided
+    if num_speakers is not None:
+        logging.info(f"Using fixed number of speakers: {num_speakers}")
+        result = pipeline(audio_file, num_speakers=num_speakers)
+    else:
+        result = pipeline(audio_file)
 
-    result = pipeline(audio_file)
-
-    logging.info("Done generating spearer diarization")
+    logging.info("Done generating speaker diarization")
 
     with open(TEMP_DIARIZATION_FILE, "w") as rttm:
         result.write_rttm(rttm)
 
-    logging.info(f"Wrote diarization file: {TEMP_DIARIZATION_FILE}", )
+    logging.info(f"Wrote diarization file: {TEMP_DIARIZATION_FILE}")
 
     return result
 
@@ -647,8 +657,7 @@ def format_key_points_alternative(summary_text):
     return key_points
 
 
-# Modify the process_video function to include summarization
-def process_video(youtube_url, video_file, model, collar, skip, language, generate_summary=False, progress=gr.Progress()):
+def process_video(youtube_url, video_file, model, collar, skip, language, generate_summary=False, num_speakers=None, progress=gr.Progress()):
     """Main function to run the whole procesessing pipeline."""
 
     try:
@@ -681,7 +690,7 @@ def process_video(youtube_url, video_file, model, collar, skip, language, genera
         if "Speaker diarization" not in skip:
             progress(
                 0.5, desc="Generating speaker diarization... (this may take a while)")
-            diarization = generate_speaker_diarization(TEMP_AUDIO_FILE)
+            diarization = generate_speaker_diarization(TEMP_AUDIO_FILE, num_speakers)
         else:
             progress(0.5, desc="Reusing local dirization file...")
             logging.info(
@@ -718,7 +727,8 @@ def process_video(youtube_url, video_file, model, collar, skip, language, genera
         logging.error(traceback.format_exc())
         raise gr.Error(f"Error inesperado: {str(e)}")
 
-# Update the UI to include the summary functionality
+
+# Update the UI to include the number of speakers input
 with gr.Blocks() as ui:
     gr.Markdown(
         """
@@ -776,6 +786,16 @@ with gr.Blocks() as ui:
                 value="base",
                 label="Modelo Whisper",
                 info="Para español, use modelos sin '.en'. Para inglés, los modelos con '.en' funcionan mejor."
+            )
+
+            # Add number of speakers input
+            num_speakers = gr.Number(
+                label="Número de hablantes",
+                info="Si conoce el número exacto de hablantes, especificarlo mejorará la velocidad y precisión de la diarización",
+                value=None,
+                minimum=1,
+                maximum=20,
+                step=1
             )
 
             # Update model selection based on language
@@ -839,7 +859,7 @@ with gr.Blocks() as ui:
 
     start_btn.click(
         fn=process_video,
-        inputs=[youtube_url, video_file, model, collar, skip_group, language, generate_summary],
+        inputs=[youtube_url, video_file, model, collar, skip_group, language, generate_summary, num_speakers],
         outputs=[output_text, summary_text]
     )
 
