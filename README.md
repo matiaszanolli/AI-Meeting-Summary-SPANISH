@@ -14,15 +14,15 @@ A tool for transcribing and summarizing meetings from video files or YouTube URL
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.10+
 - CUDA-compatible GPU (recommended for faster processing)
 - Hugging Face account with API token
 
 ## Installation
 
 1. Clone this repository:
-   git clone https://github.com/matiaszanolli/ai-meeting-transcription.git
-   cd ai-meeting-transcription
+   git clone https://github.com/matiaszanolli/AI-Meeting-Summary-SPANISH.git
+   cd AI-Meeting-Summary-SPANISH
 
 2. Create a virtual environment and install dependencies:
    python -m venv venv

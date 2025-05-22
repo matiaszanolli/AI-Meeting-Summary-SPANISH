@@ -14,15 +14,15 @@ Una herramienta para transcribir y resumir reuniones a partir de archivos de vid
 
 ## Requisitos
 
-- Python 3.8+
+- Python 3.10+
 - GPU compatible con CUDA (recomendado para procesamiento más rápido)
 - Cuenta de Hugging Face con token de API
 
 ## Instalación
 
 1. Clona este repositorio:
-   git clone https://github.com/matiaszanolli/ai-meeting-transcription.git
-   cd ai-meeting-transcription
+   git clone https://github.com/matiaszanolli/AI-Meeting-Summary-SPANISH.git
+   cd AI-Meeting-Summary-SPANISH
 
 2. Crea un entorno virtual e instala las dependencias:
    python -m venv venv
