@@ -219,11 +219,11 @@ def save_transcription(transcription):
 
 
 def generate_meeting_summary(transcription, max_points=10):
-    """Generate a summary of the meeting using a very simple filtering approach"""
+    """Generate a summary of the meeting using improved filtering and formatting"""
     
-    logging.info("Generating meeting summary using simple filtering...")
+    logging.info("Generating meeting summary with improved filtering...")
     
-    # Step 1: Extract meaningful segments and filter out noise
+    # Step 1: Extract meaningful segments with better filtering
     meaningful_segments = []
     
     for t in transcription:
@@ -231,18 +231,7 @@ def generate_meeting_summary(transcription, max_points=10):
         speaker = t['speaker']
         
         # Skip if text is too short
-        if len(text) < 20:  # Increased minimum length
-            continue
-            
-        # Skip English-only segments
-        english_phrases = ["thank you", "we'll see you", "see you next", "thank you very much"]
-        is_english = False
-        for phrase in english_phrases:
-            if phrase in text.lower():
-                is_english = True
-                break
-        
-        if is_english:
+        if len(text) < 30:  # Increased minimum length for better context
             continue
             
         # Skip segments with excessive repetition
@@ -250,7 +239,7 @@ def generate_meeting_summary(transcription, max_points=10):
         if len(words) > 5:
             unique_words = set(words)
             repetition_ratio = len(unique_words) / len(words)
-            if repetition_ratio < 0.4:  # Increased uniqueness requirement
+            if repetition_ratio < 0.5:  # Increased uniqueness requirement
                 continue
         
         # Skip segments that are just repetitions of the same word/phrase
@@ -272,52 +261,66 @@ def generate_meeting_summary(transcription, max_points=10):
         if repeated_pattern:
             continue
         
-        # Skip incomplete sentences or fragments
+        # Improved scoring for sentence completeness
         if text.endswith((".", "!", "?")):
-            sentence_score = 1.0  # Complete sentence
+            sentence_score = 1.5  # Complete sentence gets higher score
         else:
             # Check if it's a substantial fragment
-            if len(text) < 40:  # Short fragments are likely incomplete thoughts
+            if len(text) < 50:  # Short fragments are likely incomplete thoughts
                 continue
-            sentence_score = 0.5  # Longer fragment, might be useful
+            sentence_score = 0.7  # Longer fragment, might be useful
         
         # Skip segments that are likely not meaningful content
         filler_phrases = ["la idea sería", "bueno", "este", "pues", "entonces", "vamos a"]
         has_filler = False
         for phrase in filler_phrases:
-            if text.lower().startswith(phrase) and len(text) < 50:
+            if text.lower().startswith(phrase) and len(text) < 60:
                 has_filler = True
                 break
         
         if has_filler:
             continue
         
+        # Check for contextual relevance - segments should contain keywords related to the project/meeting
+        relevant_keywords = ["proyecto", "desarrollo", "cliente", "usuario", "producto", 
+                            "tecnología", "aplicación", "sistema", "paciente", "terapia", 
+                            "comunicación", "empresa", "inversión", "estrategia", "tablet"]
+        
+        relevance_score = 0
+        for keyword in relevant_keywords:
+            if keyword in text.lower():
+                relevance_score += 0.5
+        
         # Add the segment if it passed all filters
         meaningful_segments.append({
             'speaker': speaker,
             'text': text,
-            'score': sentence_score * len(text) / 50  # Score based on length and completeness
+            'score': (sentence_score + relevance_score) * len(text) / 100  # Score based on length, completeness and relevance
         })
     
     # Step 2: Sort by score and select top segments
     meaningful_segments.sort(key=lambda x: x['score'], reverse=True)
     
-    # Take top segments up to max_points
-    selected_segments = meaningful_segments[:max_points*2]  # Take more than needed for diversity
+    # Make sure we have enough segments
+    if len(meaningful_segments) < max_points:
+        max_points = len(meaningful_segments)
+    
+    if max_points == 0:
+        return "No se pudieron extraer puntos clave significativos de la transcripción."
     
     # Step 3: Ensure diversity by selecting from different parts of the meeting
     final_segments = []
     
     # If we have enough segments, select from beginning, middle, and end
-    if len(selected_segments) > max_points:
+    if len(meaningful_segments) > max_points:
         # Divide into three parts
-        part_size = len(selected_segments) // 3
-        beginning = selected_segments[:part_size]
-        middle = selected_segments[part_size:2*part_size]
-        end = selected_segments[2*part_size:]
+        part_size = len(meaningful_segments) // 3
+        beginning = meaningful_segments[:part_size]
+        middle = meaningful_segments[part_size:2*part_size]
+        end = meaningful_segments[2*part_size:]
         
         # Take top segments from each part
-        points_per_part = max_points // 3
+        points_per_part = max(1, max_points // 3)
         final_segments.extend(beginning[:points_per_part])
         final_segments.extend(middle[:points_per_part])
         final_segments.extend(end[:points_per_part])
@@ -326,12 +329,12 @@ def generate_meeting_summary(transcription, max_points=10):
         remaining = max_points - len(final_segments)
         if remaining > 0:
             # Get segments not already selected
-            unused = [s for s in selected_segments if s not in final_segments]
+            unused = [s for s in meaningful_segments if s not in final_segments]
             final_segments.extend(unused[:remaining])
     else:
-        final_segments = selected_segments
+        final_segments = meaningful_segments[:max_points]
     
-    # Step 4: Format as key points
+    # Step 4: Format as key points with improved context
     key_points = "Puntos clave de la reunión:\n\n"
     
     for i, segment in enumerate(final_segments, 1):
@@ -345,10 +348,14 @@ def generate_meeting_summary(transcription, max_points=10):
         if text and len(text) > 0:
             text = text[0].upper() + text[1:]
         
-        # Add to summary
-        key_points += f"{i}. {text}\n\n"
+        # Make sure the text ends with proper punctuation
+        if not text.endswith((".", "!", "?")):
+            text += "."
+        
+        # Add speaker information for context
+        key_points += f"{i}. [{segment['speaker']}] {text}\n\n"
     
-    logging.info("Done generating meeting summary")
+    logging.info("Done generating improved meeting summary")
     return key_points
 
 
