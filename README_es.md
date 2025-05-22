@@ -21,21 +21,29 @@ Una herramienta para transcribir y resumir reuniones a partir de archivos de vid
 ## Instalación
 
 1. Clona este repositorio:
+   ```bash
    git clone https://github.com/matiaszanolli/AI-Meeting-Summary-SPANISH.git
    cd AI-Meeting-Summary-SPANISH
+   ```
 
 2. Crea un entorno virtual e instala las dependencias:
+   ```bash
    python -m venv venv
    source venv/bin/activate  # En Windows: venv\Scripts\activate
    pip install -r requirements.txt
+   ```
 
 3. Crea un archivo .env en la raíz del proyecto con tu token de Hugging Face:
+   ```bash
    HUGGINGFACE_AUTH_TOKEN=tu_token_aquí
+   ```
 
 ## Uso
 
 1. Inicia la interfaz web:
+   ```bash
    python web-ui.py
+   ```
 
 2. Abre tu navegador en http://localhost:7860
 

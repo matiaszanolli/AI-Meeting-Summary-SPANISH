@@ -21,21 +21,29 @@ A tool for transcribing and summarizing meetings from video files or YouTube URL
 ## Installation
 
 1. Clone this repository:
+   ```bash
    git clone https://github.com/matiaszanolli/AI-Meeting-Summary-SPANISH.git
    cd AI-Meeting-Summary-SPANISH
+   ```
 
 2. Create a virtual environment and install dependencies:
+   ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    pip install -r requirements.txt
+   ```
 
 3. Create a .env file in the project root with your Hugging Face token:
+   ```bash
    HUGGINGFACE_AUTH_TOKEN=your_token_here
+   ```
 
 ## Usage
 
 1. Start the web interface:
+   ```bash
    python web-ui.py
+   ```
 
 2. Open your browser at http://localhost:7860
 
