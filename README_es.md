@@ -21,7 +21,7 @@ Una herramienta para transcribir y resumir reuniones a partir de archivos de vid
 ## Instalación
 
 1. Clona este repositorio:
-   git clone https://github.com/tunombre/ai-meeting-transcription.git
+   git clone https://github.com/matiaszanolli/ai-meeting-transcription.git
    cd ai-meeting-transcription
 
 2. Crea un entorno virtual e instala las dependencias:

@@ -21,7 +21,7 @@ A tool for transcribing and summarizing meetings from video files or YouTube URL
 ## Installation
 
 1. Clone this repository:
-   git clone https://github.com/yourusername/ai-meeting-transcription.git
+   git clone https://github.com/matiaszanolli/ai-meeting-transcription.git
    cd ai-meeting-transcription
 
 2. Create a virtual environment and install dependencies:
