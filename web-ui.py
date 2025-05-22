@@ -103,7 +103,10 @@ def extract_audio_track(input_file, start_time, end_time, track_file):
     # Extract the desired segment
     track = audio[start_ms:end_ms]
 
-    track.export(track_file, format="mp3")
+    # Make sure we're exporting in a format that Whisper can handle
+    # WAV is more reliable than MP3 for this purpose
+    ensure_dir(track_file)
+    track.export(track_file, format="wav")  # Changed from mp3 to wav
 
 
 def generate_speaker_diarization(audio_file):
@@ -151,29 +154,41 @@ def generate_transcription(diarization, model, collar, language):
 
     # Create directory for tracks
     shutil.rmtree("output-tracks", ignore_errors=True)
-    os.mkdir("output-tracks")
+    os.makedirs("output-tracks", exist_ok=True)
 
     result = []
     for turn, _, speaker in diarization.support(collar).itertracks(yield_label=True):
-        part_file = f"output-tracks/{round(turn.start, 2)}-{speaker}.mp3"
+        # Use WAV format instead of MP3
+        part_file = f"output-tracks/{round(turn.start, 2)}-{speaker}.wav"  # Changed from mp3 to wav
         part_path = os.path.join(os.curdir, part_file)
         extract_audio_track(TEMP_AUDIO_FILE, turn.start, turn.end, part_file)
 
-        part_data = None
-        with open(part_path, "rb") as audio_content:
-            part_data = audio_content.read()
+        try:
+            # Read the audio file
+            with open(part_path, "rb") as audio_content:
+                part_data = audio_content.read()
 
-        # Call the pipeline with basic parameters
-        output = pipe(part_data, batch_size=8, return_timestamps=False)
-        text = output['text']
+            # Call the pipeline with basic parameters
+            output = pipe(part_data, batch_size=8, return_timestamps=False)
+            text = output['text']
 
-        result.append({
-            'start': turn.start,
-            'end': turn.end,
-            'speaker': speaker,
-            'text': text.strip(),
-            'track_path': part_path
-        })
+            result.append({
+                'start': turn.start,
+                'end': turn.end,
+                'speaker': speaker,
+                'text': text.strip(),
+                'track_path': part_path
+            })
+        except Exception as e:
+            logging.error(f"Error processing audio segment {part_file}: {e}")
+            # Add a placeholder for the failed segment
+            result.append({
+                'start': turn.start,
+                'end': turn.end,
+                'speaker': speaker,
+                'text': "[Error al transcribir este segmento]",
+                'track_path': part_path
+            })
 
     logging.info(f"Done generating transcription tracks: {len(result)}")
     return result
@@ -229,7 +244,7 @@ def generate_meeting_summary(transcription, max_points=10):
         
         if is_english:
             continue
-        
+            
         # Skip segments with excessive repetition
         words = text.split()
         if len(words) > 5:
