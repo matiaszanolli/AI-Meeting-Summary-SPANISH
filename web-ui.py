@@ -120,8 +120,10 @@ def generate_speaker_diarization(audio_file, num_speakers=None):
     logging.info(f"Generating speaker diarization... audio file: {audio_file}, num_speakers: {num_speakers}")
 
     pipeline = Pipeline.from_pretrained(
-        "pyannote/speaker-diarization-3.0",
+        "pyannote/speaker-diarization-3.1",
         use_auth_token=HUGGINGFACE_AUTH_TOKEN)
+    
+    pipeline.to(torch.device("cuda"))  # Use GPU if available
     
     # Apply speaker count parameter if provided
     if num_speakers is not None:
@@ -229,9 +231,9 @@ def save_transcription(transcription):
 
 
 def generate_meeting_summary(transcription, max_points=10):
-    """Generate a summary of the meeting using improved filtering and formatting"""
+    """Generate a summary of the meeting with improved formatting and context"""
     
-    logging.info("Generating meeting summary with improved filtering...")
+    logging.info("Generating meeting summary with improved formatting...")
     
     # Step 1: Extract meaningful segments with better filtering
     meaningful_segments = []
@@ -241,7 +243,7 @@ def generate_meeting_summary(transcription, max_points=10):
         speaker = t['speaker']
         
         # Skip if text is too short
-        if len(text) < 30:  # Increased minimum length for better context
+        if len(text) < 40:  # Increased minimum length for better context
             continue
             
         # Skip segments with excessive repetition
@@ -276,15 +278,16 @@ def generate_meeting_summary(transcription, max_points=10):
             sentence_score = 1.5  # Complete sentence gets higher score
         else:
             # Check if it's a substantial fragment
-            if len(text) < 50:  # Short fragments are likely incomplete thoughts
+            if len(text) < 60:  # Short fragments are likely incomplete thoughts
                 continue
             sentence_score = 0.7  # Longer fragment, might be useful
         
         # Skip segments that are likely not meaningful content
-        filler_phrases = ["la idea sería", "bueno", "este", "pues", "entonces", "vamos a"]
+        filler_phrases = ["la idea sería", "bueno", "este", "pues", "dale", "eh", "o sea", "entonces", 
+                          "hmm", "yeah", "de repente", "vamos a"]
         has_filler = False
         for phrase in filler_phrases:
-            if text.lower().startswith(phrase) and len(text) < 60:
+            if text.lower().startswith(phrase) and len(text) < 70:
                 has_filler = True
                 break
         
@@ -292,9 +295,13 @@ def generate_meeting_summary(transcription, max_points=10):
             continue
         
         # Check for contextual relevance - segments should contain keywords related to the project/meeting
-        relevant_keywords = ["proyecto", "desarrollo", "cliente", "usuario", "producto", 
-                            "tecnología", "aplicación", "sistema", "paciente", "terapia", 
-                            "comunicación", "empresa", "inversión", "estrategia", "tablet"]
+        relevant_keywords = ["proyecto", "desarrollo", "cliente", "usuario", "producto", "pictograma",
+                            "tecnología", "aplicación", "sistema", "paciente", "terapia", "picto",
+                            "educación", "aprendizaje", "interfaz", "diseño", "innovación", "android",
+                            "iOS", "móvil", "web", "software", "hardware", "empresa", "negocio", 
+                            "mercado", "negocio", "estrategia", "plan", "meta", "objetivo", "resultado",
+                            "beneficio", "ventaja", "competencia", "mercado", "cliente", "usuario",
+                            "comunicación", "empresa", "inversión", "inversor", "estrategia", "tablet"]
         
         relevance_score = 0
         for keyword in relevant_keywords:
@@ -344,7 +351,7 @@ def generate_meeting_summary(transcription, max_points=10):
     else:
         final_segments = meaningful_segments[:max_points]
     
-    # Step 4: Format as key points with improved context
+    # Step 4: Format as key points with improved context - REMOVE SPEAKER TAGS
     key_points = "Puntos clave de la reunión:\n\n"
     
     for i, segment in enumerate(final_segments, 1):
@@ -362,8 +369,8 @@ def generate_meeting_summary(transcription, max_points=10):
         if not text.endswith((".", "!", "?")):
             text += "."
         
-        # Add speaker information for context
-        key_points += f"{i}. [{segment['speaker']}] {text}\n\n"
+        # Add the point WITHOUT speaker information
+        key_points += f"{i}. {text}\n\n"
     
     logging.info("Done generating improved meeting summary")
     return key_points
