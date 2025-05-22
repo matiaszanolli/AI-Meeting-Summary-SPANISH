@@ -202,102 +202,136 @@ def save_transcription(transcription):
 
     logging.info("Done saving transcripion")
 
-def generate_meeting_summary(transcription, max_length=1024):
-    """Generate a summary of the meeting from the transcription using an extractive approach"""
+
+def generate_meeting_summary(transcription, max_points=10):
+    """Generate a summary of the meeting using a very simple filtering approach"""
     
-    logging.info("Generating meeting summary using extractive approach...")
+    logging.info("Generating meeting summary using simple filtering...")
     
-    # Step 1: Combine all transcription segments into a single text
-    full_text = ""
+    # Step 1: Extract meaningful segments and filter out noise
+    meaningful_segments = []
+    
     for t in transcription:
-        full_text += f"{t['speaker']}: {t['text']}\n"
-    
-    # Step 2: Split into sentences and clean them
-    import re
-    sentences = re.split(r'(?<=[.!?])\s+', full_text)
-    
-    # Step 3: Clean and filter sentences
-    clean_sentences = []
-    for sentence in sentences:
-        # Remove speaker tags
-        cleaned = re.sub(r'SPEAKER_\d+:', '', sentence).strip()
-        # Remove sentences that are too short or contain problematic patterns
-        if (len(cleaned.split()) > 5 and 
-            not cleaned.startswith("Ahead of") and
-            not re.search(r'^\d+\.\d+\s*-', cleaned) and
-            not re.search(r'^\d+\.\d+\s*billion', cleaned) and
-            "€" not in cleaned and
-            "billion euros" not in cleaned.lower()):
-            clean_sentences.append(cleaned)
-    
-    # Step 4: Score sentences by importance (simple heuristic)
-    # We'll use term frequency as a simple metric
-    from collections import Counter
-    
-    # Get word frequencies
-    words = " ".join(clean_sentences).lower().split()
-    # Remove common Spanish stopwords
-    stopwords = ["el", "la", "los", "las", "you", "un", "una", "unos", "unas", "y", "o", "pero", 
-                "porque", "que", "de", "a", "en", "por", "para", "con", "sin", "sobre",
-                "este", "esta", "estos", "estas", "ese", "esa", "esos", "esas", "aquel",
-                "aquella", "aquellos", "aquellas", "mi", "tu", "su", "nuestro", "vuestro"]
-    filtered_words = [word for word in words if word not in stopwords and len(word) > 2]
-    word_freq = Counter(filtered_words)
-    
-    # Score sentences based on word importance
-    sentence_scores = []
-    for sentence in clean_sentences:
-        score = 0
-        for word in sentence.lower().split():
-            if word in word_freq:
-                score += word_freq[word]
-        # Normalize by sentence length to avoid bias toward longer sentences
-        score = score / max(5, len(sentence.split()))
-        sentence_scores.append((score, sentence))
-    
-    # Step 5: Select top sentences
-    sentence_scores.sort(reverse=True)  # Sort by score, highest first
-    top_sentences = [s[1] for s in sentence_scores[:15]]  # Take top 15 sentences
-    
-    # Step 6: Reorder sentences to maintain chronological order
-    # This preserves the flow of the meeting
-    ordered_top_sentences = []
-    for sentence in clean_sentences:
-        if sentence in [s for s in top_sentences]:
-            ordered_top_sentences.append(sentence)
-            if len(ordered_top_sentences) >= 15:  # Limit to 15 sentences
+        text = t['text'].strip()
+        speaker = t['speaker']
+        
+        # Skip if text is too short
+        if len(text) < 20:  # Increased minimum length
+            continue
+            
+        # Skip English-only segments
+        english_phrases = ["thank you", "we'll see you", "see you next", "thank you very much"]
+        is_english = False
+        for phrase in english_phrases:
+            if phrase in text.lower():
+                is_english = True
                 break
+        
+        if is_english:
+            continue
+        
+        # Skip segments with excessive repetition
+        words = text.split()
+        if len(words) > 5:
+            unique_words = set(words)
+            repetition_ratio = len(unique_words) / len(words)
+            if repetition_ratio < 0.4:  # Increased uniqueness requirement
+                continue
+        
+        # Skip segments that are just repetitions of the same word/phrase
+        repeated_pattern = False
+        if len(words) > 10:
+            # Check for repeating patterns
+            for i in range(1, 6):  # Check for patterns of length 1-5 words
+                if len(words) >= i*3:  # Need at least 3 repetitions to detect a pattern
+                    pattern = ' '.join(words[:i])
+                    pattern_count = 0
+                    for j in range(0, len(words), i):
+                        if j + i <= len(words) and ' '.join(words[j:j+i]) == pattern:
+                            pattern_count += 1
+                    
+                    if pattern_count >= 3 and pattern_count * i > len(words) * 0.5:
+                        repeated_pattern = True
+                        break
+        
+        if repeated_pattern:
+            continue
+        
+        # Skip incomplete sentences or fragments
+        if text.endswith((".", "!", "?")):
+            sentence_score = 1.0  # Complete sentence
+        else:
+            # Check if it's a substantial fragment
+            if len(text) < 40:  # Short fragments are likely incomplete thoughts
+                continue
+            sentence_score = 0.5  # Longer fragment, might be useful
+        
+        # Skip segments that are likely not meaningful content
+        filler_phrases = ["la idea sería", "bueno", "este", "pues", "entonces", "vamos a"]
+        has_filler = False
+        for phrase in filler_phrases:
+            if text.lower().startswith(phrase) and len(text) < 50:
+                has_filler = True
+                break
+        
+        if has_filler:
+            continue
+        
+        # Add the segment if it passed all filters
+        meaningful_segments.append({
+            'speaker': speaker,
+            'text': text,
+            'score': sentence_score * len(text) / 50  # Score based on length and completeness
+        })
     
-    # Step 7: Format as key points in Spanish
+    # Step 2: Sort by score and select top segments
+    meaningful_segments.sort(key=lambda x: x['score'], reverse=True)
+    
+    # Take top segments up to max_points
+    selected_segments = meaningful_segments[:max_points*2]  # Take more than needed for diversity
+    
+    # Step 3: Ensure diversity by selecting from different parts of the meeting
+    final_segments = []
+    
+    # If we have enough segments, select from beginning, middle, and end
+    if len(selected_segments) > max_points:
+        # Divide into three parts
+        part_size = len(selected_segments) // 3
+        beginning = selected_segments[:part_size]
+        middle = selected_segments[part_size:2*part_size]
+        end = selected_segments[2*part_size:]
+        
+        # Take top segments from each part
+        points_per_part = max_points // 3
+        final_segments.extend(beginning[:points_per_part])
+        final_segments.extend(middle[:points_per_part])
+        final_segments.extend(end[:points_per_part])
+        
+        # Add any remaining points from the highest scored segments
+        remaining = max_points - len(final_segments)
+        if remaining > 0:
+            # Get segments not already selected
+            unused = [s for s in selected_segments if s not in final_segments]
+            final_segments.extend(unused[:remaining])
+    else:
+        final_segments = selected_segments
+    
+    # Step 4: Format as key points
     key_points = "Puntos clave de la reunión:\n\n"
     
-    # Remove duplicates or very similar sentences
-    unique_sentences = []
-    seen_content = set()
-    
-    for sentence in ordered_top_sentences:
-        # Create a simplified version for duplicate detection
-        simplified = re.sub(r'\s+', ' ', sentence.lower())
-        simplified = re.sub(r'[^\w\s]', '', simplified)
+    for i, segment in enumerate(final_segments, 1):
+        # Clean up the text
+        text = segment['text']
         
-        # Check if we've seen something very similar
-        is_duplicate = False
-        for seen in seen_content:
-            # If more than 70% of words are the same, consider it a duplicate
-            words1 = set(simplified.split())
-            words2 = set(seen.split())
-            common_words = words1.intersection(words2)
-            if len(common_words) > 0.7 * min(len(words1), len(words2)):
-                is_duplicate = True
-                break
+        # Remove excessive punctuation
+        text = re.sub(r'([.!?])\1+', r'\1', text)
         
-        if not is_duplicate:
-            seen_content.add(simplified)
-            unique_sentences.append(sentence)
-    
-    # Format the final output
-    for i, sentence in enumerate(unique_sentences, 1):
-        key_points += f"{i}. {sentence}\n\n"
+        # Ensure first letter is capitalized
+        if text and len(text) > 0:
+            text = text[0].upper() + text[1:]
+        
+        # Add to summary
+        key_points += f"{i}. {text}\n\n"
     
     logging.info("Done generating meeting summary")
     return key_points
